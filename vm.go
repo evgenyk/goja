@@ -382,7 +382,7 @@ type vm struct {
 
 type telemetry struct {
 	enabled              bool
-	instructionsExecuted int64
+	instructionsExecuted uint32
 	estimatedStackSize   int32
 }
 
@@ -415,7 +415,7 @@ func (r *countingWriter) Write(p []byte) (n int, err error) {
 
 func (t *telemetry) recordInstruction(vm *vm, _ instruction) {
 
-	atomic.AddInt64(&t.instructionsExecuted, 1)
+	atomic.AddUint32(&t.instructionsExecuted, 1)
 
 	if t.enabled && t.instructionsExecuted%vm.r.threatholds.InspectNthInstruction == 0 {
 
@@ -428,9 +428,7 @@ func (t *telemetry) recordInstruction(vm *vm, _ instruction) {
 				switch subObject := typed.self.(type) {
 				case *arrayObject:
 					b := &countingWriter{}
-					if err := gob.NewEncoder(b).Encode(subObject.values); err != nil {
-						fmt.Println(err)
-					}
+					gob.NewEncoder(b).Encode(subObject.values)
 					stackSize += int32(b.BytesWritten)
 				default:
 					stackSize++

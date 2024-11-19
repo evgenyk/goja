@@ -179,9 +179,9 @@ type Now func() time.Time
 
 type Threatholds struct {
 	StackMemory            int32
-	InspectNthInstruction  int64
+	InspectNthInstruction  uint32
 	OnStackMemoryExhausted func(vm *Runtime)
-	OnInstructionExecuted  func(vm *Runtime, n int64)
+	OnInstructionExecuted  func(vm *Runtime, n uint32)
 }
 
 type Runtime struct {
@@ -465,8 +465,8 @@ func (r *Runtime) init() {
 	r.threatholds = Threatholds{
 		StackMemory:            math.MaxInt32,
 		OnStackMemoryExhausted: func(vm *Runtime) {},
-		InspectNthInstruction:  math.MaxInt64,
-		OnInstructionExecuted:  func(vm *Runtime, n int64) {},
+		InspectNthInstruction:  math.MaxUint32,
+		OnInstructionExecuted:  func(vm *Runtime, n uint32) {},
 	}
 }
 

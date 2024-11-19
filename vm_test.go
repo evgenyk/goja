@@ -75,7 +75,7 @@ func TestMem(t *testing.T) {
 			vm.Interrupt("memory usage too high")
 		},
 		InspectNthInstruction: 100,
-		OnInstructionExecuted: func(vm *Runtime, n int64) {
+		OnInstructionExecuted: func(vm *Runtime, n uint32) {
 			fmt.Printf("Executed %d instructions\n", n)
 		},
 	})
@@ -100,7 +100,7 @@ func TestMem2(t *testing.T) {
 			vm.Interrupt("memory usage too high")
 		},
 		InspectNthInstruction: 100,
-		OnInstructionExecuted: func(vm *Runtime, n int64) {
+		OnInstructionExecuted: func(vm *Runtime, n uint32) {
 			if n > 50000000 {
 				vm.Interrupt("too many instructions")
 			}
@@ -138,7 +138,7 @@ func TestMem3(t *testing.T) {
 			vm.Interrupt("memory usage too high")
 		},
 		InspectNthInstruction: 100,
-		OnInstructionExecuted: func(vm *Runtime, n int64) {
+		OnInstructionExecuted: func(vm *Runtime, n uint32) {
 			if n > 50000000 {
 				vm.Interrupt("too many instructions")
 			}

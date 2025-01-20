@@ -69,14 +69,20 @@ func TestMem(t *testing.T) {
 	const SCRIPT = `for(var x="X",a=[];;a.push(x+=x));`
 
 	v := New()
-	v.SetThretholds(Threatholds{
-		StackMemory: 1 * 1024 * 1024,
-		OnStackMemoryExhausted: func(vm *Runtime) {
-			vm.Interrupt("memory usage too high")
-		},
-		InspectNthInstruction: 100,
+	v.SetTelemetryCallbacks(TelemetryCallbacks{
+		InspectNthInstruction: 10,
 		OnInstructionExecuted: func(vm *Runtime, n uint32) {
 			fmt.Printf("Executed %d instructions\n", n)
+		},
+		OnMemoryUsageChanged: func(vm *Runtime, n uint32, mem func() int32) {
+			if n%100 != 0 {
+				return
+			}
+			memUsage := mem()
+			fmt.Printf("Memory checked instructions %v - mem %vMB\n", n, memUsage/1024/1024)
+			if memUsage > 1*1024*1024 {
+				vm.Interrupt("memory usage too high")
+			}
 		},
 	})
 
@@ -94,15 +100,22 @@ func TestMem2(t *testing.T) {
 	`
 
 	v := New()
-	v.SetThretholds(Threatholds{
-		StackMemory: 100 * 1024,
-		OnStackMemoryExhausted: func(vm *Runtime) {
-			vm.Interrupt("memory usage too high")
-		},
+	v.SetTelemetryCallbacks(TelemetryCallbacks{
 		InspectNthInstruction: 100,
 		OnInstructionExecuted: func(vm *Runtime, n uint32) {
 			if n > 50000000 {
 				vm.Interrupt("too many instructions")
+			}
+		},
+		OnMemoryUsageChanged: func(vm *Runtime, n uint32, mem func() int32) {
+			if n%100 != 0 {
+				return
+			}
+
+			memUsage := mem()
+			fmt.Printf("Memory checked instructions %v - mem %v\n", n, memUsage)
+			if memUsage > 1*1024*1024 {
+				vm.Interrupt("memory usage too high")
 			}
 		},
 	})
@@ -132,15 +145,22 @@ func TestMem3(t *testing.T) {
 
 	v := New()
 	v.SetMaxCallStackSize(1000)
-	v.SetThretholds(Threatholds{
-		StackMemory: 100 * 1024,
-		OnStackMemoryExhausted: func(vm *Runtime) {
-			vm.Interrupt("memory usage too high")
-		},
+	v.SetTelemetryCallbacks(TelemetryCallbacks{
 		InspectNthInstruction: 100,
 		OnInstructionExecuted: func(vm *Runtime, n uint32) {
 			if n > 50000000 {
 				vm.Interrupt("too many instructions")
+			}
+		},
+		OnMemoryUsageChanged: func(vm *Runtime, n uint32, mem func() int32) {
+			if n%100 != 0 {
+				return
+			}
+
+			memUsage := mem()
+			fmt.Printf("Memory checked instructions %v - mem %v\n", n, memUsage)
+			if memUsage > 1*1024*1024 {
+				vm.Interrupt("memory usage too high")
 			}
 		},
 	})

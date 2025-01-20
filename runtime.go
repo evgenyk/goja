@@ -177,11 +177,10 @@ type RandSource func() float64
 
 type Now func() time.Time
 
-type Threatholds struct {
-	StackMemory            int32
-	InspectNthInstruction  uint32
-	OnStackMemoryExhausted func(vm *Runtime)
-	OnInstructionExecuted  func(vm *Runtime, n uint32)
+type TelemetryCallbacks struct {
+	InspectNthInstruction uint32
+	OnInstructionExecuted func(vm *Runtime, n uint32)
+	OnMemoryUsageChanged  func(vm *Runtime, n uint32, mem func() int32)
 }
 
 type Runtime struct {
@@ -209,7 +208,7 @@ type Runtime struct {
 	promiseRejectionTracker PromiseRejectionTracker
 	asyncContextTracker     AsyncContextTracker
 
-	threatholds Threatholds
+	telemetryCallbacks TelemetryCallbacks
 }
 
 type StackFrame struct {
@@ -462,11 +461,9 @@ func (r *Runtime) init() {
 		r: r,
 	}
 	r.vm.init()
-	r.threatholds = Threatholds{
-		StackMemory:            math.MaxInt32,
-		OnStackMemoryExhausted: func(vm *Runtime) {},
-		InspectNthInstruction:  math.MaxUint32,
-		OnInstructionExecuted:  func(vm *Runtime, n uint32) {},
+	r.telemetryCallbacks = TelemetryCallbacks{
+		OnInstructionExecuted: func(vm *Runtime, n uint32) {},
+		OnMemoryUsageChanged:  func(vm *Runtime, n uint32, mem func() int32) {},
 	}
 }
 
@@ -2434,18 +2431,16 @@ func (r *Runtime) SetTimeSource(now Now) {
 	r.now = now
 }
 
-func (r *Runtime) SetThretholds(value Threatholds) {
+func (r *Runtime) SetTelemetryCallbacks(value TelemetryCallbacks) {
 	r.vm.telemetry.enabled = true
 
-	r.threatholds.StackMemory = value.StackMemory
-	r.threatholds.InspectNthInstruction = value.InspectNthInstruction
+	r.telemetryCallbacks.InspectNthInstruction = value.InspectNthInstruction
 
 	if value.OnInstructionExecuted != nil {
-		r.threatholds.OnInstructionExecuted = value.OnInstructionExecuted
+		r.telemetryCallbacks.OnInstructionExecuted = value.OnInstructionExecuted
 	}
-
-	if value.OnStackMemoryExhausted != nil {
-		r.threatholds.OnStackMemoryExhausted = value.OnStackMemoryExhausted
+	if value.OnMemoryUsageChanged != nil {
+		r.telemetryCallbacks.OnMemoryUsageChanged = value.OnMemoryUsageChanged
 	}
 
 }

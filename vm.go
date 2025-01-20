@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/dop251/goja/unistring"
 )
@@ -383,7 +384,7 @@ type vm struct {
 type telemetry struct {
 	enabled              bool
 	instructionsExecuted uint32
-	estimatedStackSize   int32
+	memStats             []int32
 }
 
 func init() {
@@ -413,37 +414,59 @@ func (r *countingWriter) Write(p []byte) (n int, err error) {
 
 }
 
+func (t *telemetry) recordStackMemory(vm *vm, sp int, item interface{}) {
+
+	if sp >= len(t.memStats) {
+		newStats := make([]int32, sp+1)
+		copy(newStats, t.memStats)
+		t.memStats = newStats
+	}
+	t.memStats[sp] = -1
+
+	computeSizeOfStack := func(item interface{}) int32 {
+		var itemSize int32
+		switch typed := item.(type) {
+		case asciiString:
+			itemSize = int32(typed.Length())
+		case *Object:
+			switch subObject := typed.self.(type) {
+			case *arrayObject:
+				if len(subObject.values) == 0 {
+					itemSize = int32(unsafe.Sizeof(subObject.values))
+				} else {
+					b := &countingWriter{}
+					gob.NewEncoder(b).Encode(subObject.values)
+					itemSize = int32(b.BytesWritten)
+				}
+			default:
+				itemSize = 1
+			}
+		default:
+			itemSize = 1
+		}
+		return itemSize
+	}
+
+	vm.r.telemetryCallbacks.OnMemoryUsageChanged(vm.r, t.instructionsExecuted, func() int32 {
+		memUsage := int32(0)
+		for sp, v := range t.memStats {
+			if v == -1 {
+				t.memStats[sp] = computeSizeOfStack(vm.stack[sp])
+				v = t.memStats[sp]
+			}
+			memUsage += v
+
+		}
+		return memUsage
+	})
+}
+
 func (t *telemetry) recordInstruction(vm *vm, _ instruction) {
 
 	atomic.AddUint32(&t.instructionsExecuted, 1)
 
-	if t.enabled && t.instructionsExecuted%vm.r.threatholds.InspectNthInstruction == 0 {
-
-		var stackSize int32 = 0
-		for _, item := range vm.stack {
-			switch typed := item.(type) {
-			case asciiString:
-				stackSize += int32(typed.Length())
-			case *Object:
-				switch subObject := typed.self.(type) {
-				case *arrayObject:
-					b := &countingWriter{}
-					gob.NewEncoder(b).Encode(subObject.values)
-					stackSize += int32(b.BytesWritten)
-				default:
-					stackSize++
-				}
-				stackSize++
-			default:
-				stackSize++
-			}
-		}
-		atomic.StoreInt32(&t.estimatedStackSize, int32(stackSize))
-
-		if stackSize > vm.r.threatholds.StackMemory {
-			vm.r.threatholds.OnStackMemoryExhausted(vm.r)
-		}
-		vm.r.threatholds.OnInstructionExecuted(vm.r, t.instructionsExecuted)
+	if t.enabled && t.instructionsExecuted%vm.r.telemetryCallbacks.InspectNthInstruction == 0 {
+		vm.r.telemetryCallbacks.OnInstructionExecuted(vm.r, t.instructionsExecuted)
 	}
 }
 
@@ -961,6 +984,7 @@ func (vm *vm) runTryInner() (ex *Exception) {
 func (vm *vm) push(v Value) {
 	vm.stack.expand(vm.sp)
 	vm.stack[vm.sp] = v
+	vm.telemetry.recordStackMemory(vm, vm.sp, v)
 	vm.sp++
 }
 

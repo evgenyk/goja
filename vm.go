@@ -449,12 +449,11 @@ func (t *telemetry) recordStackMemory(vm *vm, sp int, item interface{}) {
 
 	vm.r.telemetryCallbacks.OnMemoryUsageChanged(vm.r, t.instructionsExecuted, func() int32 {
 		memUsage := int32(0)
-		for sp, v := range t.memStats {
-			if v == -1 {
-				t.memStats[sp] = computeSizeOfStack(vm.stack[sp])
-				v = t.memStats[sp]
+		for sp, v := range vm.stack {
+			if t.memStats[sp] == -1 {
+				t.memStats[sp] = computeSizeOfStack(v)
+				memUsage += t.memStats[sp]
 			}
-			memUsage += v
 
 		}
 		return memUsage
